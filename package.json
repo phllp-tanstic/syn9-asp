@@ -1,0 +1,24 @@
+{
+  "name": "syn9-asp",
+  "version": "0.1.0",
+  "description": "Syn9 — provenance-verified, permissioned collaborative state layer for multi-agent workflows on OKX AI.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "src/api/server.js",
+  "scripts": {
+    "dev": "node --watch src/api/server.js",
+    "start": "node src/api/server.js",
+    "test": "node --test tests/unit/**/*.test.js",
+    "test:integration": "node --test tests/integration/**/*.test.js"
+  },
+  "dependencies": {
+    "fastify": "^5.1.0",
+    "@fastify/sensible": "^6.0.1",
+    "pino": "^9.5.0"
+  },
+  "devDependencies": {}
+}
