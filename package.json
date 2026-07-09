@@ -16,9 +16,9 @@
     "test:integration": "node --test tests/integration/**/*.test.js"
   },
   "dependencies": {
-    "fastify": "^5.1.0",
     "@fastify/sensible": "^6.0.1",
+    "fastify": "^5.1.0",
+    "pg": "^8.22.0",
     "pino": "^9.5.0"
-  },
-  "devDependencies": {}
+  }
 }
