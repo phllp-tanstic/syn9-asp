@@ -2,7 +2,7 @@ import { NotImplementedError } from '../domain/errors.js';
 
 /**
  * IdentityProvider — resolves an inbound request into an authenticated
- * agent identity.
+ * agent identity, and registers new identities.
  *
  * v1 implementation (modules/identity/api-key-wallet-provider.js) trusts
  * an API key + X-Agent-Wallet header pair (see blueprint R2: wallet-native
@@ -10,6 +10,10 @@ import { NotImplementedError } from '../domain/errors.js';
  * port exists so that v2 can swap in wallet-native signing without any
  * caller (routes, authorization) changing — they depend on this
  * interface, not on how identity is established.
+ *
+ * register() and authenticate() live on the same port deliberately:
+ * issuing an identity and verifying one are two capabilities of the
+ * same concern (identity), not two separate architectural boundaries.
  *
  * @interface
  */
@@ -21,6 +25,20 @@ export class IdentityProvider {
    */
   async authenticate(_credentials) {
     throw new NotImplementedError('IdentityProvider', 'authenticate');
+  }
+
+  /**
+   * Registers a new identity for a wallet address and issues an API key.
+   * The raw key is returned exactly once — only its hash is persisted.
+   * If the wallet address is already registered, implementations should
+   * throw a ValidationError rather than silently issuing a second
+   * identity for the same wallet.
+   *
+   * @param {{walletAddress: string, roles?: string[]}} params
+   * @returns {Promise<{identity: Identity, apiKey: string}>}
+   */
+  async register(_params) {
+    throw new NotImplementedError('IdentityProvider', 'register');
   }
 }
 
