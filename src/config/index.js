@@ -28,9 +28,11 @@ export const config = {
   },
 
   storage: {
-    databaseUrl: required('DATABASE_URL', process.env.DATABASE_URL, {
-      requiredIn: ['production'],
-    }),
+    // Not eagerly validated here — nothing in server.js consumes this yet.
+    // modules/storage will enforce its own requirement when it initializes
+    // a connection pool (Day 2). Eager validation of unused config just
+    // creates false-positive deploy failures.
+    databaseUrl: process.env.DATABASE_URL ?? null,
     poolMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
   },
 
