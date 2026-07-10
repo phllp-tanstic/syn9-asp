@@ -6,6 +6,8 @@ import { ApiKeyWalletProvider } from '../modules/identity/api-key-wallet-provide
 import healthRoutes from './routes/health.js';
 import identitiesRoutes from './routes/identities.js';
 import { Syn9Error } from '../core/domain/errors.js';
+import { requireAuth } from './middleware/auth.js';
+
 
 /**
  * Composition root for the HTTP layer.
@@ -31,6 +33,15 @@ async function buildServer() {
 
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
+  // TEMPORARY diagnostic route — proves auth middleware works before
+  // WEAVE exists to test against it. Remove once WEAVE lands.
+  fastify.get(
+    '/v1/whoami',
+    { preHandler: requireAuth(identityProvider) },
+    async (request) => {
+      return { identity: request.identity };
+    }
+  );
 
   // Translate domain errors (core/domain/errors.js) into HTTP responses.
   // This is the one place in the codebase that maps Syn9Error -> status
