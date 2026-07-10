@@ -7,6 +7,9 @@ import healthRoutes from './routes/health.js';
 import identitiesRoutes from './routes/identities.js';
 import { Syn9Error } from '../core/domain/errors.js';
 import { requireAuth } from './middleware/auth.js';
+import { PostgresClaimStore } from '../modules/storage/postgres-claim-store.js';
+import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
+import weaveRoutes from './routes/weave.js';
 
 
 /**
@@ -30,9 +33,12 @@ async function buildServer() {
   // Composition: wire concrete modules to the ports routes depend on.
   const pool = getPool();
   const identityProvider = new ApiKeyWalletProvider(pool);
+  const claimStore = new PostgresClaimStore(pool);
+  const provenanceChain = new Sha256Chain();
 
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
+  await fastify.register(weaveRoutes, { claimStore, provenanceChain, identityProvider });
   // TEMPORARY diagnostic route — proves auth middleware works before
   // WEAVE exists to test against it. Remove once WEAVE lands.
   fastify.get(
