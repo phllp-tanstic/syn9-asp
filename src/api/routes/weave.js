@@ -2,6 +2,7 @@ import { generateId } from '../../core/domain/id.js';
 import { Claim, PermissionMode, ClaimScope } from '../../core/domain/claim.js';
 import { ValidationError } from '../../core/domain/errors.js';
 import { requireAuth } from '../middleware/auth.js';
+import { validatePermission } from '../../core/domain/validate-permission.js';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
@@ -51,17 +52,7 @@ export default async function weaveRoutes(fastify, opts) {
         );
       }
 
-      if (!permissions || !Object.values(PermissionMode).includes(permissions.mode)) {
-        throw new ValidationError(
-          `permissions.mode is required and must be one of: ${Object.values(PermissionMode).join(', ')}`
-        );
-      }
-
-      if (permissions.mode === PermissionMode.TASK_CHAIN && !taskId) {
-        throw new ValidationError(
-          'task_id is required when permissions.mode is task_chain'
-        );
-      }
+      const normalizedPermission = validatePermission(permissions, taskId);
 
       if (!Object.values(ClaimScope).includes(scope)) {
         throw new ValidationError(
@@ -98,11 +89,7 @@ export default async function weaveRoutes(fastify, opts) {
         writerIdentityId,
         payload,
         payloadHash,
-        permission: {
-          mode: permissions.mode,
-          allow: permissions.allow,
-          taskId: permissions.mode === PermissionMode.TASK_CHAIN ? taskId : undefined,
-        },
+        permission: normalizedPermission,
         scope,
         chainHash,
         prevHash,
