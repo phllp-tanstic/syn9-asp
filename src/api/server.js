@@ -12,7 +12,6 @@ import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
 import weaveRoutes from './routes/weave.js';
 import revokeRoutes from './routes/revoke.js';
 
-
 /**
  * Composition root for the HTTP layer.
  *
@@ -31,21 +30,10 @@ async function buildServer() {
 
   await fastify.register(sensible);
 
-  // Composition: wire concrete modules to the ports routes depend on.
-  const pool = getPool();
-  const identityProvider = new ApiKeyWalletProvider(pool);
-  const claimStore = new PostgresClaimStore(pool);
-  const provenanceChain = new Sha256Chain();
-
-  await fastify.register(healthRoutes);
-  await fastify.register(identitiesRoutes, { identityProvider });
-  await fastify.register(weaveRoutes, { claimStore, provenanceChain, identityProvider });
-  await fastify.register(revokeRoutes, { claimStore, identityProvider });
-  
-
-  // Translate domain errors (core/domain/errors.js) into HTTP responses.
-  // This is the one place in the codebase that maps Syn9Error -> status
-  // code — core/ and modules/ stay transport-agnostic.
+  // Error handler registered before any routes — Fastify's plugin
+  // encapsulation means each fastify.register() call snapshots the
+  // parent's state at that moment. A handler added after routes are
+  // registered would not apply to those routes' encapsulated contexts.
   fastify.setErrorHandler((error, request, reply) => {
     if (error instanceof Syn9Error) {
       const statusMap = {
@@ -68,6 +56,17 @@ async function buildServer() {
     fastify.log.error(error);
     reply.code(500).send({ error: 'INTERNAL_ERROR', message: 'Unexpected error' });
   });
+
+  // Composition: wire concrete modules to the ports routes depend on.
+  const pool = getPool();
+  const identityProvider = new ApiKeyWalletProvider(pool);
+  const claimStore = new PostgresClaimStore(pool);
+  const provenanceChain = new Sha256Chain();
+
+  await fastify.register(healthRoutes);
+  await fastify.register(identitiesRoutes, { identityProvider });
+  await fastify.register(weaveRoutes, { claimStore, provenanceChain, identityProvider });
+  await fastify.register(revokeRoutes, { claimStore, identityProvider });
 
   return fastify;
 }
