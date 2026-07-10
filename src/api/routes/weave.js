@@ -1,8 +1,8 @@
 import { generateId } from '../../core/domain/id.js';
-import { Claim, PermissionMode, ClaimScope } from '../../core/domain/claim.js';
+import { Claim, ClaimScope } from '../../core/domain/claim.js';
 import { ValidationError } from '../../core/domain/errors.js';
-import { requireAuth } from '../middleware/auth.js';
 import { validatePermission } from '../../core/domain/validate-permission.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
@@ -10,9 +10,7 @@ const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
 /**
  * WEAVE — write with provenance.
  *
- * Known gaps as of Day 2 (flagged, not silent):
- *  - embeddings not implemented; claims are stored with embedding=null.
- *    RECALL's similarity search depends on this landing (Day 3).
+ * Known gaps as of Day 3 (flagged, not silent):
  *  - anomaly detection not implemented; anomaly_flag is always null.
  *    Async detection is Day 4 scope per the blueprint.
  *  - workflow-scope expiry (tied to task close) isn't enforced yet;
@@ -23,10 +21,11 @@ const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
  * @param {import('fastify').FastifyInstance} fastify
  * @param {{claimStore: import('../../core/ports/claim-store.js').ClaimStore,
  *          provenanceChain: import('../../core/ports/provenance-chain.js').ProvenanceChain,
+ *          embeddingProvider: import('../../core/ports/embedding-provider.js').EmbeddingProvider,
  *          identityProvider: import('../../core/ports/identity-provider.js').IdentityProvider}} opts
  */
 export default async function weaveRoutes(fastify, opts) {
-  const { claimStore, provenanceChain, identityProvider } = opts;
+  const { claimStore, provenanceChain, embeddingProvider, identityProvider } = opts;
 
   fastify.post(
     '/v1/threads/:threadId/weave',
@@ -65,6 +64,11 @@ export default async function weaveRoutes(fastify, opts) {
       const payloadHash = provenanceChain.hashPayload(payload);
       const timestamp = new Date();
 
+      const embedding = await embeddingProvider.embed({
+        text: JSON.stringify(payload),
+        taskType: 'document',
+      });
+
       const latestClaim = await claimStore.getLatestInThread(threadId);
       const prevHash = latestClaim ? latestClaim.chainHash : null;
 
@@ -89,6 +93,7 @@ export default async function weaveRoutes(fastify, opts) {
         writerIdentityId,
         payload,
         payloadHash,
+        embedding,
         permission: normalizedPermission,
         scope,
         chainHash,

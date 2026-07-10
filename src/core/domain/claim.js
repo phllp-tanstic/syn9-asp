@@ -49,6 +49,7 @@ export class Claim {
     writerIdentityId,
     payload,
     payloadHash,
+    embedding = null,
     permission,
     scope,
     chainHash,
@@ -63,6 +64,7 @@ export class Claim {
     this.writerIdentityId = writerIdentityId;
     this.payload = payload;
     this.payloadHash = payloadHash;
+    this.embedding = embedding;
     this.permission = Object.freeze({ ...permission });
     this.scope = scope;
     this.chainHash = chainHash;

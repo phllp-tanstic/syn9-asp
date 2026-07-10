@@ -11,6 +11,7 @@ import { PostgresClaimStore } from '../modules/storage/postgres-claim-store.js';
 import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
 import weaveRoutes from './routes/weave.js';
 import revokeRoutes from './routes/revoke.js';
+import { GeminiEmbeddingProvider } from '../modules/embeddings/gemini-embedding-provider.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -62,11 +63,12 @@ async function buildServer() {
   const identityProvider = new ApiKeyWalletProvider(pool);
   const claimStore = new PostgresClaimStore(pool);
   const provenanceChain = new Sha256Chain();
+  const embeddingProvider = new GeminiEmbeddingProvider();
 
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
-  await fastify.register(weaveRoutes, { claimStore, provenanceChain, identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
+  await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, identityProvider });
 
   return fastify;
 }
