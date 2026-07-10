@@ -46,8 +46,8 @@ export const config = {
   },
 
   embeddings: {
-    openaiApiKey: process.env.OPENAI_API_KEY ?? null,
-    model: process.env.EMBEDDING_MODEL ?? 'text-embedding-3-small',
+    geminiApiKey: process.env.GEMINI_API_KEY ?? null,
+    model: process.env.GEMINI_EMBEDDING_MODEL ?? 'gemini-embedding-001',
   },
 
   anchor: {
