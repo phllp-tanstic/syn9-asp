@@ -10,6 +10,7 @@ import { requireAuth } from './middleware/auth.js';
 import { PostgresClaimStore } from '../modules/storage/postgres-claim-store.js';
 import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
 import weaveRoutes from './routes/weave.js';
+import revokeRoutes from './routes/revoke.js';
 
 
 /**
@@ -39,15 +40,8 @@ async function buildServer() {
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, identityProvider });
-  // TEMPORARY diagnostic route — proves auth middleware works before
-  // WEAVE exists to test against it. Remove once WEAVE lands.
-  fastify.get(
-    '/v1/whoami',
-    { preHandler: requireAuth(identityProvider) },
-    async (request) => {
-      return { identity: request.identity };
-    }
-  );
+  await fastify.register(revokeRoutes, { claimStore, identityProvider });
+  
 
   // Translate domain errors (core/domain/errors.js) into HTTP responses.
   // This is the one place in the codebase that maps Syn9Error -> status
