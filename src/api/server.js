@@ -16,6 +16,7 @@ import { PermissionModePolicy } from '../modules/authorization/permission-mode-p
 import { PostgresAuditLog } from '../modules/audit/postgres-audit-log.js';
 import recallRoutes from './routes/recall.js';
 import { fileURLToPath } from 'node:url';
+import { GroqSynthesisEngine } from '../modules/synthesis/groq-synthesis-engine.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -70,12 +71,13 @@ async function buildServer() {
   const embeddingProvider = new GeminiEmbeddingProvider();
   const authorizationPolicy = new PermissionModePolicy();
   const auditLog = new PostgresAuditLog(pool, provenanceChain);
+  const synthesisEngine = new GroqSynthesisEngine();
 
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, identityProvider });
-  await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, identityProvider });
+  await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider });
 
   return fastify;
 }

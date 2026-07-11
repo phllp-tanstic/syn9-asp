@@ -9,10 +9,7 @@ const DEFAULT_MIN_SIMILARITY = 0.75;
 /**
  * RECALL — permissioned semantic retrieval.
  *
- * Known gaps as of Day 3 (flagged, not silent):
- *  - synthesis: true is accepted but not implemented; synthesized_context
- *    is always null regardless of the flag. Synthesis engine is Day 4
- *    scope per the blueprint.
+ * Known gaps as of Day 4 (flagged, not silent):
  *  - task_chain-permissioned claims are unreadable by anyone (see
  *    PermissionModePolicy — deny-by-default until Day 5's OKX task
  *    membership integration lands).
@@ -31,7 +28,8 @@ const DEFAULT_MIN_SIMILARITY = 0.75;
  *          identityProvider}} opts
  */
 export default async function recallRoutes(fastify, opts) {
-  const { claimStore, embeddingProvider, authorizationPolicy, auditLog, identityProvider } = opts;
+  const { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider } = opts;
+
 
   fastify.post(
     '/v1/threads/:threadId/recall',
@@ -117,13 +115,22 @@ export default async function recallRoutes(fastify, opts) {
         detail: {
           receipt_id: receiptId,
           source_entry_ids: sourceEntryIds,
-          synthesis_used: false, // synthesis not implemented yet (Day 4) — see gap note above
+          synthesis_used: synthesis,
         },
       });
 
+      let synthesizedContext = null;
+      if (synthesis) {
+        const synthesisResult = await synthesisEngine.synthesize({
+          taskIntent: intent,
+          permittedClaims: allowed.map((match) => match.claim),
+        });
+        synthesizedContext = synthesisResult.synthesizedView;
+      }
+
       return {
         results,
-        synthesized_context: null, // synthesis not implemented yet (Day 4), regardless of the synthesis flag
+        synthesized_context: synthesizedContext,
         source_entry_ids: sourceEntryIds,
         read_receipt_id: receiptId,
       };
