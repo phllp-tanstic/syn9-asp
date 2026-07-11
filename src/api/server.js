@@ -15,6 +15,7 @@ import { GeminiEmbeddingProvider } from '../modules/embeddings/gemini-embedding-
 import { PermissionModePolicy } from '../modules/authorization/permission-mode-policy.js';
 import { PostgresAuditLog } from '../modules/audit/postgres-audit-log.js';
 import recallRoutes from './routes/recall.js';
+import { fileURLToPath } from 'node:url';
 
 /**
  * Composition root for the HTTP layer.
@@ -99,4 +100,11 @@ async function start() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-start();
+export { buildServer };
+
+// Only start listening when this file is run directly (`node server.js`
+// or `npm run dev`/`start`) — not when imported by tests, which use
+// buildServer() + Fastify's inject() instead of binding a real port.
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  start();
+}

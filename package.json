@@ -14,7 +14,7 @@
     "start": "node --env-file=.env src/api/server.js",
     "migrate": "node --env-file=.env src/modules/storage/migrate.js",
     "test": "node --test tests/unit/**/*.test.js",
-    "test:integration": "node --test tests/integration/**/*.test.js"
+    "test:integration": "node --env-file=.env --test tests/integration/**/*.test.js"
   },
   "dependencies": {
     "@fastify/sensible": "^6.0.1",
