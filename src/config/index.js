@@ -41,10 +41,9 @@ export const config = {
   },
 
   synthesis: {
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? null,
-    model: process.env.SYNTHESIS_MODEL ?? 'claude-sonnet-4-6',
-  },
-
+    groqApiKey: process.env.GROQ_API_KEY ?? null,
+    model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+  }, 
   embeddings: {
     geminiApiKey: process.env.GEMINI_API_KEY ?? null,
     model: process.env.GEMINI_EMBEDDING_MODEL ?? 'gemini-embedding-001',
