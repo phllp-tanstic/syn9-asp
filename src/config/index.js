@@ -40,6 +40,10 @@ export const config = {
     apiKeySalt: process.env.SYN9_API_KEY_SALT ?? null,
   },
 
+  encryption: {
+    key: process.env.SYN9_ENCRYPTION_KEY ?? null,
+  },
+
   synthesis: {
     groqApiKey: process.env.GROQ_API_KEY ?? null,
     model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
