@@ -12,6 +12,9 @@ import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
 import weaveRoutes from './routes/weave.js';
 import revokeRoutes from './routes/revoke.js';
 import { GeminiEmbeddingProvider } from '../modules/embeddings/gemini-embedding-provider.js';
+import { PermissionModePolicy } from '../modules/authorization/permission-mode-policy.js';
+import { PostgresAuditLog } from '../modules/audit/postgres-audit-log.js';
+import recallRoutes from './routes/recall.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -64,11 +67,14 @@ async function buildServer() {
   const claimStore = new PostgresClaimStore(pool);
   const provenanceChain = new Sha256Chain();
   const embeddingProvider = new GeminiEmbeddingProvider();
+  const authorizationPolicy = new PermissionModePolicy();
+  const auditLog = new PostgresAuditLog(pool, provenanceChain);
 
   await fastify.register(healthRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, identityProvider });
+  await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, identityProvider });
 
   return fastify;
 }
