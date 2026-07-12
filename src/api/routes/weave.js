@@ -26,6 +26,7 @@ const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
  *          embeddingProvider: import('../../core/ports/embedding-provider.js').EmbeddingProvider,
  *          identityProvider: import('../../core/ports/identity-provider.js').IdentityProvider}} opts
  */
+import { deliverWebhook } from '../../modules/webhooks/webhook-delivery.js';
 export default async function weaveRoutes(fastify, opts) {
   const { claimStore, provenanceChain, embeddingProvider, identityProvider } = opts;
 
@@ -52,6 +53,49 @@ export default async function weaveRoutes(fastify, opts) {
           { details: { payloadSize, maxBytes: MAX_PAYLOAD_BYTES } }
         );
       }
+
+      /**
+ * Runs anomaly detection and, if a conflict is found, persists it and
+ * fires a webhook notification to the original writer of the
+ * contradicted claim. Deliberately not exported/awaited by the route
+ * handler — see the call site's comment above for why.
+ */
+async function detectAndNotifyConflict({
+  anomalyDetector,
+  claimStore,
+  identityProvider,
+  newClaim,
+  recentClaims,
+}) {
+  const conflict = await anomalyDetector.detect({ newClaim, recentClaims });
+  if (!conflict) return;
+
+  await claimStore.recordConflict(conflict);
+
+  const contradictedClaim = recentClaims.find(
+    (c) => c.claimId === conflict.conflictsWithClaimId
+  );
+  if (!contradictedClaim) return;
+
+  const writerIdentity = await identityProvider.getById(
+    contradictedClaim.writerIdentityId
+  );
+  if (!writerIdentity?.webhookUrl) return;
+
+  await deliverWebhook({
+    url: writerIdentity.webhookUrl,
+    event: {
+      type: 'conflict_detected',
+      conflict_id: conflict.conflictId,
+      thread_id: conflict.threadId,
+      claim_id: conflict.claimId,
+      conflicts_with_claim_id: conflict.conflictsWithClaimId,
+      similarity_score: conflict.similarityScore,
+      summary: conflict.summary,
+      detected_at: conflict.detectedAt.toISOString(),
+    },
+  });
+}
 
       const normalizedPermission = validatePermission(permissions, taskId);
 
@@ -116,12 +160,29 @@ export default async function weaveRoutes(fastify, opts) {
 
       const stored = await claimStore.append(claim);
 
+      // Fire-and-forget anomaly detection — runs AFTER the response is
+      // built, deliberately not awaited in the response path. Per
+      // blueprint constraint #3, a write that triggers an anomaly flag
+      // still completes and returns a chain hash; the flag is metadata,
+      // never a gate. Errors inside this block must never surface to
+      // the caller of WEAVE.
+      const recentClaims = await claimStore.getRecentInThread(threadId, 20);
+      detectAndNotifyConflict({
+        anomalyDetector,
+        claimStore,
+        identityProvider,
+        newClaim: stored,
+        recentClaims,
+      }).catch((err) => {
+        fastify.log.error({ err }, 'Anomaly detection background task failed');
+      });
+
       reply.code(201);
       return {
         entry_id: stored.claimId,
         chain_hash: stored.chainHash,
         timestamp: stored.createdAt.toISOString(),
-        anomaly_flag: null, // async anomaly detection not implemented yet (Day 4)
+        anomaly_flag: null, // advisory flag delivered async via webhook/polling, never inline
       };
     }
   );
