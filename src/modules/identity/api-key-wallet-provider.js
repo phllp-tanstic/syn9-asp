@@ -75,6 +75,22 @@ export class ApiKeyWalletProvider extends IdentityProvider {
     };
   }
 
+  async getById(identityId) {
+    const result = await this.pool.query(
+      'SELECT identity_id, wallet_address, roles, webhook_url FROM identities WHERE identity_id = $1',
+      [identityId]
+    );
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+      identityId: row.identity_id,
+      walletAddress: row.wallet_address,
+      roles: row.roles,
+      webhookUrl: row.webhook_url,
+    };
+  }
+
   async authenticate({ apiKey, walletAddress }) {
     if (!apiKey || !walletAddress) {
       throw new AuthenticationError(
@@ -85,7 +101,7 @@ export class ApiKeyWalletProvider extends IdentityProvider {
     const keyHash = this._hashKey(apiKey);
 
     const result = await this.pool.query(
-      `SELECT i.identity_id, i.wallet_address, i.roles
+      `SELECT i.identity_id, i.wallet_address, i.roles, i.webhook_url
        FROM api_keys ak
        JOIN identities i ON i.identity_id = ak.identity_id
        WHERE ak.key_hash = $1 AND ak.revoked = FALSE`,

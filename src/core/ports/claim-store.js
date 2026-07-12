@@ -60,4 +60,12 @@ export class ClaimStore {
   async recordConflict(_conflict) {
     throw new NotImplementedError('ClaimStore', 'recordConflict');
   }
+
+  /**
+   * @param {string} threadId
+   * @returns {Promise<import('../domain/conflict.js').Conflict[]>}
+   */
+  async listConflictsInThread(_threadId) {
+    throw new NotImplementedError('ClaimStore', 'listConflictsInThread');
+  }
 }

@@ -47,6 +47,18 @@ export class IdentityProvider {
   async register(_params) {
     throw new NotImplementedError('IdentityProvider', 'register');
   }
+
+  /**
+   * Looks up an identity by its canonical ID — used by anomaly
+   * detection to resolve a claim's writerIdentityId back to a webhook
+   * URL for notification. Returns null if not found, never throws.
+   *
+   * @param {string} identityId
+   * @returns {Promise<Identity|null>}
+   */
+  async getById(_identityId) {
+    throw new NotImplementedError('IdentityProvider', 'getById');
+  }
 }
 
 /**

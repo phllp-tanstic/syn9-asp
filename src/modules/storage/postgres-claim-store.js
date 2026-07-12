@@ -7,9 +7,7 @@ import { NotFoundError } from '../../core/domain/errors.js';
  * PostgresClaimStore — concrete ClaimStore backed by Postgres + pgvector.
  *
  * Payloads are encrypted at rest via the injected EncryptionProvider
- * (AES-256-GCM) — closes a gap that existed since Day 2, where the
- * schema was documented as "encrypted at rest" but nothing actually
- * encrypted anything.
+ * (AES-256-GCM).
  */
 export class PostgresClaimStore extends ClaimStore {
   /**
@@ -191,5 +189,22 @@ export class PostgresClaimStore extends ClaimStore {
       status: row.status,
       detectedAt: row.detected_at,
     });
+  }
+
+  async listConflictsInThread(threadId) {
+    const result = await this.pool.query(
+      `SELECT * FROM conflicts WHERE thread_id = $1 ORDER BY detected_at DESC`,
+      [threadId]
+    );
+    return result.rows.map((row) => new Conflict({
+      conflictId: row.conflict_id,
+      threadId: row.thread_id,
+      claimId: row.claim_id,
+      conflictsWithClaimId: row.conflicts_with_claim_id,
+      similarityScore: row.similarity_score,
+      summary: row.summary,
+      status: row.status,
+      detectedAt: row.detected_at,
+    }));
   }
 }
