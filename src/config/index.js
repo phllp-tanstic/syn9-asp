@@ -44,6 +44,12 @@ export const config = {
     key: process.env.SYN9_ENCRYPTION_KEY ?? null,
   },
 
+  webhooks: {
+    signingSecret: process.env.SYN9_WEBHOOK_SIGNING_SECRET ?? null,
+    maxRetries: 3,
+    retryBaseDelayMs: 1000,
+  },
+
   synthesis: {
     groqApiKey: process.env.GROQ_API_KEY ?? null,
     model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
