@@ -5,6 +5,7 @@ import { validatePermission } from '../../core/domain/validate-permission.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const WORKFLOW_FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
 
 /**
@@ -13,10 +14,11 @@ const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
  * Known gaps as of Day 3 (flagged, not silent):
  *  - anomaly detection not implemented; anomaly_flag is always null.
  *    Async detection is Day 4 scope per the blueprint.
- *  - workflow-scope expiry (tied to task close) isn't enforced yet;
- *    workflow claims get expiresAt=null until task-chain awareness
- *    lands (Day 5). session scope's 24h TTL is computed immediately
- *    since it needs no task tracking.
+ *  - workflow-scope expiry is a 7-day fallback, not the spec-correct
+ *    behavior (expire on task close). True task-close integration is
+ *    blocked on OKX not exposing a server-callable task-membership/
+ *    status API — see permission-mode-policy.js for the same blocker
+ *    affecting task_chain permission mode.
  *
  * @param {import('fastify').FastifyInstance} fastify
  * @param {{claimStore: import('../../core/ports/claim-store.js').ClaimStore,
@@ -83,9 +85,19 @@ export default async function weaveRoutes(fastify, opts) {
       let expiresAt = null;
       if (scope === ClaimScope.SESSION) {
         expiresAt = new Date(timestamp.getTime() + SESSION_TTL_MS);
+      } else if (scope === ClaimScope.WORKFLOW) {
+        // Interim fallback, not the correct behavior per spec: true
+        // workflow-scope expiry should fire on the originating OKX
+        // task's close event, which requires task-close integration
+        // that doesn't exist yet (Day 5 scope originally, now genuinely
+        // blocked — see task_chain permission mode's gap note in
+        // permission-mode-policy.js for why). A 7-day fallback bounds
+        // storage growth in the meantime rather than leaving workflow
+        // claims to persist forever, which directly contradicted the
+        // blueprint's own cost-control design (persistent-scope storage
+        // is explicitly priced to discourage indefinite retention).
+        expiresAt = new Date(timestamp.getTime() + WORKFLOW_FALLBACK_TTL_MS);
       }
-      // workflow scope: expiresAt stays null until task-chain-aware
-      // expiry lands (Day 5) — see gap note above.
 
       const claim = new Claim({
         claimId,
