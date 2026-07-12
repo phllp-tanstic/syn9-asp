@@ -8,32 +8,47 @@ import { ValidationError } from '../../core/domain/errors.js';
  * once; it cannot be recovered after this response, only rotated (not
  * yet implemented — no rotation endpoint exists as of Day 2).
  *
+ * Rate-limited to 5 registrations per hour per caller — this is the one
+ * endpoint with no auth gate at all (can't require an API key to get an
+ * API key), making it the highest-risk target for spam registration.
+ *
  * @param {import('fastify').FastifyInstance} fastify
  * @param {{identityProvider: import('../../core/ports/identity-provider.js').IdentityProvider}} opts
  */
 export default async function identitiesRoutes(fastify, opts) {
   const { identityProvider } = opts;
 
-  fastify.post('/v1/identities', async (request, reply) => {
-    const { walletAddress, roles } = request.body ?? {};
+  fastify.post(
+    '/v1/identities',
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '1 hour',
+        },
+      },
+    },
+    async (request, reply) => {
+      const { walletAddress, roles } = request.body ?? {};
 
-    if (!walletAddress || typeof walletAddress !== 'string') {
-      throw new ValidationError('walletAddress is required', {
-        details: { field: 'walletAddress' },
+      if (!walletAddress || typeof walletAddress !== 'string') {
+        throw new ValidationError('walletAddress is required', {
+          details: { field: 'walletAddress' },
+        });
+      }
+
+      const { identity, apiKey } = await identityProvider.register({
+        walletAddress,
+        roles,
       });
+
+      reply.code(201);
+      return {
+        identityId: identity.identityId,
+        walletAddress: identity.walletAddress,
+        roles: identity.roles,
+        apiKey, // shown exactly once — store this now, it cannot be retrieved again
+      };
     }
-
-    const { identity, apiKey } = await identityProvider.register({
-      walletAddress,
-      roles,
-    });
-
-    reply.code(201);
-    return {
-      identityId: identity.identityId,
-      walletAddress: identity.walletAddress,
-      roles: identity.roles,
-      apiKey, // shown exactly once — store this now, it cannot be retrieved again
-    };
-  });
+  );
 }

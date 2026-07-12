@@ -18,6 +18,7 @@ import recallRoutes from './routes/recall.js';
 import { fileURLToPath } from 'node:url';
 import { GroqSynthesisEngine } from '../modules/synthesis/groq-synthesis-engine.js';
 import { AesGcmEncryptionProvider } from '../modules/encryption/aes-gcm-encryption-provider.js';
+import rateLimit from '@fastify/rate-limit';
 
 /**
  * Composition root for the HTTP layer.
@@ -36,6 +37,14 @@ async function buildServer() {
   });
 
   await fastify.register(sensible);
+
+  // Global baseline rate limit — cheap protection against basic abuse
+  // across every route. Per-route limits (below) layer stricter rules
+  // on top for specific high-risk endpoints.
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
 
   // Error handler registered before any routes — Fastify's plugin
   // encapsulation means each fastify.register() call snapshots the
@@ -60,8 +69,25 @@ async function buildServer() {
       return;
     }
 
-    fastify.log.error(error);
-    reply.code(500).send({ error: 'INTERNAL_ERROR', message: 'Unexpected error' });
+    if (error.statusCode === 429) {
+      reply.code(429).send({
+        error: 'RATE_LIMIT_EXCEEDED',
+        message: error.message,
+      });
+      return;
+    }
+
+    // Preserve a statusCode Fastify or a plugin already assigned (e.g.
+    // malformed JSON body -> 400) rather than always forcing 500, which
+    // would misreport legitimate client errors as server failures.
+    const statusCode = error.statusCode ?? 500;
+    if (statusCode >= 500) {
+      fastify.log.error(error);
+    }
+    reply.code(statusCode).send({
+      error: error.code ?? 'INTERNAL_ERROR',
+      message: error.message ?? 'Unexpected error',
+    });
   });
 
   // Composition: wire concrete modules to the ports routes depend on.
