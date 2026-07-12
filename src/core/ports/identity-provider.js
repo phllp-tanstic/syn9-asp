@@ -34,7 +34,14 @@ export class IdentityProvider {
    * throw a ValidationError rather than silently issuing a second
    * identity for the same wallet.
    *
-   * @param {{walletAddress: string, roles?: string[]}} params
+   * webhookUrl is optional — an identity with none set simply never
+   * receives push notifications; the polling endpoint
+   * (GET /v1/threads/:threadId/conflicts) remains the durable source of
+   * truth regardless, since webhook delivery can fail silently
+   * (wrong URL, receiver down, network blip) with no built-in way for
+   * the caller to know.
+   *
+   * @param {{walletAddress: string, roles?: string[], webhookUrl?: string}} params
    * @returns {Promise<{identity: Identity, apiKey: string}>}
    */
   async register(_params) {
@@ -47,4 +54,5 @@ export class IdentityProvider {
  * @property {string} identityId    - canonical, stable identifier for this agent
  * @property {string} walletAddress
  * @property {string[]} roles       - e.g. ['agent'], reserved for future role-based policy
+ * @property {string|null} webhookUrl - optional push-notification target for conflict alerts
  */

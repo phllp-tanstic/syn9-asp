@@ -35,7 +35,7 @@ export class ApiKeyWalletProvider extends IdentityProvider {
     return 'syn9_' + randomBytes(32).toString('hex');
   }
 
-  async register({ walletAddress, roles = ['agent'] }) {
+  async register({ walletAddress, roles = ['agent'], webhookUrl = null }) {
     const existing = await this.pool.query(
       'SELECT identity_id FROM identities WHERE wallet_address = $1',
       [walletAddress]
@@ -48,10 +48,10 @@ export class ApiKeyWalletProvider extends IdentityProvider {
     }
 
     const identityResult = await this.pool.query(
-      `INSERT INTO identities (wallet_address, roles)
-       VALUES ($1, $2)
-       RETURNING identity_id, wallet_address, roles`,
-      [walletAddress, roles]
+      `INSERT INTO identities (wallet_address, roles, webhook_url)
+       VALUES ($1, $2, $3)
+       RETURNING identity_id, wallet_address, roles, webhook_url`,
+      [walletAddress, roles, webhookUrl]
     );
     const identityRow = identityResult.rows[0];
 
@@ -69,6 +69,7 @@ export class ApiKeyWalletProvider extends IdentityProvider {
         identityId: identityRow.identity_id,
         walletAddress: identityRow.wallet_address,
         roles: identityRow.roles,
+        webhookUrl: identityRow.webhook_url,
       },
       apiKey: rawKey,
     };
@@ -107,6 +108,7 @@ export class ApiKeyWalletProvider extends IdentityProvider {
       identityId: identityRow.identity_id,
       walletAddress: identityRow.wallet_address,
       roles: identityRow.roles,
+      webhookUrl: identityRow.webhook_url,
     };
   }
 }

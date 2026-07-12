@@ -29,7 +29,7 @@ export default async function identitiesRoutes(fastify, opts) {
       },
     },
     async (request, reply) => {
-      const { walletAddress, roles } = request.body ?? {};
+      const { walletAddress, roles, webhook_url: webhookUrl } = request.body ?? {};
 
       if (!walletAddress || typeof walletAddress !== 'string') {
         throw new ValidationError('walletAddress is required', {
@@ -37,9 +37,14 @@ export default async function identitiesRoutes(fastify, opts) {
         });
       }
 
+      if (webhookUrl !== undefined && typeof webhookUrl !== 'string') {
+        throw new ValidationError('webhook_url must be a string if provided');
+      }
+
       const { identity, apiKey } = await identityProvider.register({
         walletAddress,
         roles,
+        webhookUrl: webhookUrl ?? null,
       });
 
       reply.code(201);
@@ -47,6 +52,7 @@ export default async function identitiesRoutes(fastify, opts) {
         identityId: identity.identityId,
         walletAddress: identity.walletAddress,
         roles: identity.roles,
+        webhook_url: identity.webhookUrl,
         apiKey, // shown exactly once — store this now, it cannot be retrieved again
       };
     }
