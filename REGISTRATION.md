@@ -67,3 +67,36 @@ onchainos agent get-my-agents --role asp
 ```
 
 Or via the web dashboard at https://www.okx.ai (connect the same wallet).
+
+## Incident: production outage, July 9–12
+
+Between initial registration (July 9) and July 12, the deployed service
+was very likely crash-looping or partially broken due to a chain of
+compounding issues, discovered and fixed together on July 12:
+
+1. `npm start` used `node --env-file=.env`, which throws fatally if
+   `.env` doesn't exist — Railway has no `.env` file (git-ignored,
+   never deployed), so every deploy after this flag was added
+   crash-looped on boot.
+2. Once fixed, the app crashed again on missing `SYN9_ENCRYPTION_KEY`
+   and other secrets — these existed locally but were never pushed to
+   Railway's environment.
+3. The local Railway CLI was discovered to be linked to the `Postgres`
+   service, not `syn9-asp` — meaning several `railway variables --set`
+   commands run without an explicit `--service` flag had been silently
+   landing on the wrong service.
+4. The app's `PORT` was resolving to `5432` (Postgres's port) rather
+   than `8080`, traceable to the same mislinked-CLI issue.
+5. The bare root URL (`/`, the exact URL registered as this ASP's
+   service endpoint) had no route at all and 404'd — separately fixed
+   by adding a root response route.
+
+All five are now fixed and verified: `POST /v1/health` and `GET /`
+both confirmed returning 200 from the live production URL as of
+2026-07-12.
+
+**Implication for OKX review:** the ASP's registered endpoint was very
+likely unreachable or broken for some or all of the review window
+(July 9–12), which may explain why review has remained at "Listing
+under review" well past OKX's stated 24-hour SLA. Worth mentioning
+this explicitly if/when contacting OKX support.
