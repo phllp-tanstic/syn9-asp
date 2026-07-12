@@ -21,6 +21,7 @@ import { AesGcmEncryptionProvider } from '../modules/encryption/aes-gcm-encrypti
 import rateLimit from '@fastify/rate-limit';
 import { GroqAnomalyDetector } from '../modules/anomaly/groq-anomaly-detector.js';
 import conflictsRoutes from './routes/conflicts.js';
+import rootRoutes from './routes/root.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -105,6 +106,7 @@ async function buildServer() {
   const anomalyDetector = new GroqAnomalyDetector();
 
   await fastify.register(healthRoutes);
+  await fastify.register(rootRoutes);
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
   await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider });
