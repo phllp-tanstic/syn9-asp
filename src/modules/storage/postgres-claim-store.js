@@ -6,27 +6,29 @@ import { NotFoundError } from '../../core/domain/errors.js';
 /**
  * PostgresClaimStore — concrete ClaimStore backed by Postgres + pgvector.
  *
- * KNOWN GAP: the schema's `payload` column is documented as
- * "encrypted at rest (AES-256)" but no encryption module exists yet.
- * Payloads are stored as plaintext JSON for now. This is a tracked gap
- * against the blueprint's stated design, not a silent omission — must
- * be closed before this handles anything sensitive. Encryption should
- * land as its own concern (e.g. wrapping payload in/out at the edges
- * of this class) rather than being bolted on ad hoc later.
+ * Payloads are encrypted at rest via the injected EncryptionProvider
+ * (AES-256-GCM) — closes a gap that existed since Day 2, where the
+ * schema was documented as "encrypted at rest" but nothing actually
+ * encrypted anything.
  */
 export class PostgresClaimStore extends ClaimStore {
-  /** @param {import('pg').Pool} pool */
-  constructor(pool) {
+  /**
+   * @param {import('pg').Pool} pool
+   * @param {import('../../core/ports/encryption-provider.js').EncryptionProvider} encryptionProvider
+   */
+  constructor(pool, encryptionProvider) {
     super();
     this.pool = pool;
+    this.encryptionProvider = encryptionProvider;
   }
 
-  _rowToClaim(row) {
+  async _rowToClaim(row) {
+    const decryptedPayload = await this.encryptionProvider.decrypt(row.payload);
     return new Claim({
       claimId: row.claim_id,
       threadId: row.thread_id,
       writerIdentityId: row.writer_identity_id,
-      payload: JSON.parse(row.payload),
+      payload: JSON.parse(decryptedPayload),
       payloadHash: row.payload_hash,
       permission: {
         mode: row.permission_mode,
@@ -48,6 +50,10 @@ export class PostgresClaimStore extends ClaimStore {
       ? `[${claim.embedding.join(',')}]`
       : null;
 
+    const encryptedPayload = await this.encryptionProvider.encrypt(
+      JSON.stringify(claim.payload)
+    );
+
     const result = await this.pool.query(
       `INSERT INTO claims (
          thread_id, claim_id, writer_identity_id,
@@ -60,7 +66,7 @@ export class PostgresClaimStore extends ClaimStore {
         claim.threadId,
         claim.claimId,
         claim.writerIdentityId,
-        JSON.stringify(claim.payload),
+        encryptedPayload,
         claim.payloadHash,
         embeddingLiteral,
         claim.permission.mode,
@@ -75,13 +81,13 @@ export class PostgresClaimStore extends ClaimStore {
 
     return this._rowToClaim(result.rows[0]);
   }
-  
+
   async getById(claimId) {
     const result = await this.pool.query(
       'SELECT * FROM claims WHERE claim_id = $1',
       [claimId]
     );
-    return result.rows.length > 0 ? this._rowToClaim(result.rows[0]) : null;
+    return result.rows.length > 0 ? await this._rowToClaim(result.rows[0]) : null;
   }
 
   async getLatestInThread(threadId) {
@@ -92,7 +98,7 @@ export class PostgresClaimStore extends ClaimStore {
        LIMIT 1`,
       [threadId]
     );
-    return result.rows.length > 0 ? this._rowToClaim(result.rows[0]) : null;
+    return result.rows.length > 0 ? await this._rowToClaim(result.rows[0]) : null;
   }
 
   async searchBySimilarity({ threadId, queryEmbedding, topK, minSimilarity }) {
@@ -110,12 +116,16 @@ export class PostgresClaimStore extends ClaimStore {
       [embeddingLiteral, threadId, topK]
     );
 
-    return result.rows
-      .filter((row) => row.similarity_score >= minSimilarity)
-      .map((row) => ({
-        claim: this._rowToClaim(row),
+    const filtered = result.rows.filter(
+      (row) => row.similarity_score >= minSimilarity
+    );
+
+    return Promise.all(
+      filtered.map(async (row) => ({
+        claim: await this._rowToClaim(row),
         similarityScore: row.similarity_score,
-      }));
+      }))
+    );
   }
 
   async getRecentInThread(threadId, limit) {
@@ -126,7 +136,7 @@ export class PostgresClaimStore extends ClaimStore {
        LIMIT $2`,
       [threadId, limit]
     );
-    return result.rows.map((row) => this._rowToClaim(row));
+    return Promise.all(result.rows.map((row) => this._rowToClaim(row)));
   }
 
   async revoke(claimId) {

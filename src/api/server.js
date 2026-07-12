@@ -17,6 +17,7 @@ import { PostgresAuditLog } from '../modules/audit/postgres-audit-log.js';
 import recallRoutes from './routes/recall.js';
 import { fileURLToPath } from 'node:url';
 import { GroqSynthesisEngine } from '../modules/synthesis/groq-synthesis-engine.js';
+import { AesGcmEncryptionProvider } from '../modules/encryption/aes-gcm-encryption-provider.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -66,7 +67,8 @@ async function buildServer() {
   // Composition: wire concrete modules to the ports routes depend on.
   const pool = getPool();
   const identityProvider = new ApiKeyWalletProvider(pool);
-  const claimStore = new PostgresClaimStore(pool);
+  const encryptionProvider = new AesGcmEncryptionProvider();
+  const claimStore = new PostgresClaimStore(pool, encryptionProvider);
   const provenanceChain = new Sha256Chain();
   const embeddingProvider = new GeminiEmbeddingProvider();
   const authorizationPolicy = new PermissionModePolicy();
