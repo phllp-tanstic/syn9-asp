@@ -68,4 +68,19 @@ export class ClaimStore {
   async listConflictsInThread(_threadId) {
     throw new NotImplementedError('ClaimStore', 'listConflictsInThread');
   }
+
+  /**
+   * @param {{grantId: string, claimId: string, grantedToWallet: string, grantedByIdentityId: string}} grant
+   */
+  async recordGrant(_grant) {
+    throw new NotImplementedError('ClaimStore', 'recordGrant');
+  }
+
+  /**
+   * @param {string} claimId
+   * @returns {Promise<string[]>} wallet addresses granted access, beyond the claim's original allow list
+   */
+  async getGrantedWallets(_claimId) {
+    throw new NotImplementedError('ClaimStore', 'getGrantedWallets');
+  }
 }

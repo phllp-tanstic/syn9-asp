@@ -211,4 +211,20 @@ export class PostgresClaimStore extends ClaimStore {
       detectedAt: row.detected_at,
     }));
   }
+
+  async recordGrant(grant) {
+    await this.pool.query(
+      `INSERT INTO permission_grants (grant_id, claim_id, granted_to_wallet, granted_by_identity_id)
+       VALUES ($1, $2, $3, $4)`,
+      [grant.grantId, grant.claimId, grant.grantedToWallet, grant.grantedByIdentityId]
+    );
+  }
+
+  async getGrantedWallets(claimId) {
+    const result = await this.pool.query(
+      `SELECT granted_to_wallet FROM permission_grants WHERE claim_id = $1`,
+      [claimId]
+    );
+    return result.rows.map((row) => row.granted_to_wallet);
+  }
 }

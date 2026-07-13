@@ -2,18 +2,27 @@ import { AuthorizationPolicy } from '../../core/ports/authorization-policy.js';
 import { PermissionMode } from '../../core/domain/claim.js';
 
 /**
- * PermissionModePolicy — concrete AuthorizationPolicy implementing the
- * three read-permission modes from the blueprint.
+ * PermissionModePolicy — concrete AuthorizationPolicy.
  *
- * KNOWN GAP: task_chain mode has no real enforcement yet — verifying
- * that a requester participates in the same OKX task requires the OKX
- * task membership API, which is Day 5 scope. Denying by default (rather
- * than allowing, or silently falling back to explicit with no allowlist
- * to check) is the safer failure mode for a system whose entire premise
- * is permission-gated access — a trust layer that fails open on an
- * unimplemented check is worse than one that fails closed.
+ * explicit mode now checks the union of a claim's original
+ * permission.allow list AND any wallets granted access afterward via
+ * PERMISSION_GRANT (permission_grants table) — grants are additive,
+ * never replace the original allowlist, and are themselves an
+ * auditable append-only record (see migration 006).
+ *
+ * KNOWN GAP: task_chain mode has no real enforcement — verifying task
+ * membership requires an OKX task-membership API that isn't
+ * server-callable for arbitrary third-party wallets (confirmed via
+ * research, not assumed). Denying by default is the safer failure mode
+ * for a system whose entire premise is permission-gated access.
  */
 export class PermissionModePolicy extends AuthorizationPolicy {
+  /** @param {import('../../core/ports/claim-store.js').ClaimStore} claimStore */
+  constructor(claimStore) {
+    super();
+    this.claimStore = claimStore;
+  }
+
   async evaluate({ claim, requesterIdentity, action }) {
     if (claim.revoked) {
       return { allowed: false, reason: 'REVOKED' };
@@ -23,9 +32,6 @@ export class PermissionModePolicy extends AuthorizationPolicy {
     }
 
     if (action !== 'read') {
-      // revoke has its own writer-identity check in api/routes/revoke.js,
-      // deliberately not routed through this policy — see that file's
-      // header comment for why.
       return { allowed: false, reason: 'UNSUPPORTED_ACTION' };
     }
 
@@ -33,16 +39,17 @@ export class PermissionModePolicy extends AuthorizationPolicy {
       case PermissionMode.OPEN:
         return { allowed: true };
 
-      case PermissionMode.EXPLICIT:
+      case PermissionMode.EXPLICIT: {
+        const originalAllow = claim.permission.allow ?? [];
+        const grantedWallets = await this.claimStore.getGrantedWallets(claim.claimId);
+        const allAllowed = new Set([...originalAllow, ...grantedWallets]);
         return {
-          allowed: (claim.permission.allow ?? []).includes(
-            requesterIdentity.walletAddress
-          ),
+          allowed: allAllowed.has(requesterIdentity.walletAddress),
           reason: 'NOT_IN_ALLOWLIST',
         };
+      }
 
       case PermissionMode.TASK_CHAIN:
-        // Not implemented — see class-level comment. Deny by default.
         return { allowed: false, reason: 'TASK_CHAIN_NOT_IMPLEMENTED' };
 
       default:

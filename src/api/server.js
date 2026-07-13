@@ -22,6 +22,7 @@ import rateLimit from '@fastify/rate-limit';
 import { GroqAnomalyDetector } from '../modules/anomaly/groq-anomaly-detector.js';
 import conflictsRoutes from './routes/conflicts.js';
 import rootRoutes from './routes/root.js';
+import permissionGrantRoutes from './routes/permission-grant.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -100,7 +101,7 @@ async function buildServer() {
   const claimStore = new PostgresClaimStore(pool, encryptionProvider);
   const provenanceChain = new Sha256Chain();
   const embeddingProvider = new GeminiEmbeddingProvider();
-  const authorizationPolicy = new PermissionModePolicy();
+  const authorizationPolicy = new PermissionModePolicy(claimStore);
   const auditLog = new PostgresAuditLog(pool, provenanceChain);
   const synthesisEngine = new GroqSynthesisEngine();
   const anomalyDetector = new GroqAnomalyDetector();
@@ -112,6 +113,7 @@ async function buildServer() {
   await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider });
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider });
   await fastify.register(conflictsRoutes, { claimStore, identityProvider });
+  await fastify.register(permissionGrantRoutes, { claimStore, identityProvider });
 
   return fastify;
 }
