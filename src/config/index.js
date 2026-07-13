@@ -68,7 +68,12 @@ export const config = {
   },
 
   payment: {
-    okxPaymentSdkKey: process.env.OKX_PAYMENT_SDK_KEY ?? null,
-    x402FacilitatorUrl: process.env.X402_FACILITATOR_URL ?? null,
+    apiKey: process.env.OKX_PAYMENT_API_KEY ?? null,
+    secretKey: process.env.OKX_PAYMENT_SECRET_KEY ?? null,
+    passphrase: process.env.OKX_PAYMENT_PASSPHRASE ?? null,
+    projectId: process.env.OKX_PAYMENT_PROJECT_ID ?? null,
+    // Syn9's own wallet — recipient of all payments (payTo field in
+    // 402 challenges). Same wallet as the Agentic Wallet from Day 1.
+    payToWallet: process.env.SYN9_AGENT_WALLET ?? null,
   },
 };
