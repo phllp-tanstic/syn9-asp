@@ -22,12 +22,16 @@ export class PostgresClaimStore extends ClaimStore {
 
   async _rowToClaim(row) {
     const decryptedPayload = await this.encryptionProvider.decrypt(row.payload);
+    const embedding = row.embedding
+      ? (typeof row.embedding === 'string' ? JSON.parse(row.embedding) : row.embedding)
+      : null;
     return new Claim({
       claimId: row.claim_id,
       threadId: row.thread_id,
       writerIdentityId: row.writer_identity_id,
       payload: JSON.parse(decryptedPayload),
       payloadHash: row.payload_hash,
+      embedding,
       permission: {
         mode: row.permission_mode,
         allow: row.allowed_wallets ?? undefined,

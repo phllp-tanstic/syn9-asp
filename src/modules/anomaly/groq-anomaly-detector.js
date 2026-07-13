@@ -4,6 +4,7 @@ import { generateId } from '../../core/domain/id.js';
 import { generateText } from '../llm/groq-text-client.js';
 
 const SIMILARITY_PREFILTER_THRESHOLD = 0.88; // matches blueprint's anomaly.js reference value
+const MAX_CANDIDATES_TO_CHECK = 3; // avoid missing a real contradiction ranked below a near-duplicate
 
 const CONTRADICTION_SYSTEM_INSTRUCTION = `You compare two short claims and determine if they factually contradict each other — not merely whether they're topically related.
 
@@ -44,6 +45,7 @@ function parseContradictionResponse(text) {
  */
 export class GroqAnomalyDetector extends AnomalyDetector {
   async detect({ newClaim, recentClaims }) {
+    console.log('DETECT CALLED — newClaim.embedding present:', !!newClaim.embedding, '| recentClaims.length:', recentClaims.length);
     if (!newClaim.embedding || recentClaims.length === 0) return null;
 
     const candidates = recentClaims
@@ -55,28 +57,39 @@ export class GroqAnomalyDetector extends AnomalyDetector {
       .filter((c) => c.score >= SIMILARITY_PREFILTER_THRESHOLD)
       .sort((a, b) => b.score - a.score);
 
+    console.log('CANDIDATES AFTER FILTER:', candidates.length, '| all recentClaims embeddings present:', recentClaims.map(c => !!c.embedding));
+
     if (candidates.length === 0) return null;
 
-    const topCandidate = candidates[0];
+    // Check multiple top candidates, not just the single nearest
+    // neighbor — a near-duplicate (non-contradicting) claim can
+    // outrank a genuine contradiction that happens to score slightly
+    // lower, causing real conflicts to be silently missed if only the
+    // top-1 match were checked.
+    for (const candidate of candidates.slice(0, MAX_CANDIDATES_TO_CHECK)) {
+      const prompt = `Claim A: ${JSON.stringify(newClaim.payload)}\nClaim B: ${JSON.stringify(candidate.claim.payload)}`;
 
-    const prompt = `Claim A: ${JSON.stringify(newClaim.payload)}\nClaim B: ${JSON.stringify(topCandidate.claim.payload)}`;
+      const response = await generateText({
+        prompt,
+        systemInstruction: CONTRADICTION_SYSTEM_INSTRUCTION,
+      });
 
-    const response = await generateText({
-      prompt,
-      systemInstruction: CONTRADICTION_SYSTEM_INSTRUCTION,
-    });
+      console.log('LOOP CHECK — candidate:', candidate.claim.payload, '| score:', candidate.score, '| response:', JSON.stringify(response));
 
-    const { contradicts, summary } = parseContradictionResponse(response);
-    if (!contradicts) return null;
+      const { contradicts, summary } = parseContradictionResponse(response);
+      if (contradicts) {
+        return new Conflict({
+          conflictId: generateId('syn9_conflict'),
+          threadId: newClaim.threadId,
+          claimId: newClaim.claimId,
+          conflictsWithClaimId: candidate.claim.claimId,
+          similarityScore: candidate.score,
+          summary: summary ?? 'Contradiction detected (no summary provided by model).',
+          detectedAt: new Date(),
+        });
+      }
+    }
 
-    return new Conflict({
-      conflictId: generateId('syn9_conflict'),
-      threadId: newClaim.threadId,
-      claimId: newClaim.claimId,
-      conflictsWithClaimId: topCandidate.claim.claimId,
-      similarityScore: topCandidate.score,
-      summary: summary ?? 'Contradiction detected (no summary provided by model).',
-      detectedAt: new Date(),
-    });
+    return null;
   }
 }
