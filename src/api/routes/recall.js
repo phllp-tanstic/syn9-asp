@@ -1,6 +1,7 @@
 import { ValidationError, PermissionDeniedError } from '../../core/domain/errors.js';
 import { generateId } from '../../core/domain/id.js';
 import { requireAuth } from '../middleware/auth.js';
+import { requirePayment } from '../middleware/payment.js';
 
 const DEFAULT_TOP_K = 3;
 const MAX_TOP_K = 10;
@@ -28,12 +29,24 @@ const DEFAULT_MIN_SIMILARITY = 0.75;
  *          identityProvider}} opts
  */
 export default async function recallRoutes(fastify, opts) {
-  const { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider } = opts;
+  const { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider, okxPaymentClient } = opts;
 
 
   fastify.post(
     '/v1/threads/:threadId/recall',
-    { preHandler: requireAuth(identityProvider) },
+    {
+      preHandler: [
+        requireAuth(identityProvider),
+        requirePayment({
+          okxPaymentClient,
+          // Per blueprint constraint #5: raw RECALL must be near-free
+          // so agents never have a financial incentive to skip a
+          // context check. $0.00005 raw, $0.001 synthesized.
+          amountFn: (body) => (body.synthesis ? 1000 : 50),
+          description: 'Syn9 RECALL — permissioned semantic retrieval',
+        }),
+      ],
+    },
     async (request, reply) => {
       const { threadId } = request.params;
       const {

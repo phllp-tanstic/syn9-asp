@@ -4,6 +4,7 @@ import { ValidationError } from '../../core/domain/errors.js';
 import { validatePermission } from '../../core/domain/validate-permission.js';
 import { requireAuth } from '../middleware/auth.js';
 import { deliverWebhook } from '../../modules/webhooks/webhook-delivery.js';
+import { requirePayment } from '../middleware/payment.js';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const WORKFLOW_FALLBACK_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -27,11 +28,20 @@ const MAX_PAYLOAD_BYTES = 32 * 1024; // 32KB, per blueprint
  *          identityProvider: import('../../core/ports/identity-provider.js').IdentityProvider}} opts
  */
 export default async function weaveRoutes(fastify, opts) {
-  const { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider } = opts;
+  const { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, okxPaymentClient } = opts;
 
   fastify.post(
     '/v1/threads/:threadId/weave',
-    { preHandler: requireAuth(identityProvider) },
+    {
+      preHandler: [
+        requireAuth(identityProvider),
+        requirePayment({
+          okxPaymentClient,
+          amountFn: () => 2000, // $0.002 per blueprint pricing table, smallest-unit amount
+          description: 'Syn9 WEAVE — write with provenance',
+        }),
+      ],
+    },
     async (request, reply) => {
       const { threadId } = request.params;
       const {
