@@ -42,22 +42,30 @@ export class OkxPaymentClient {
     const bodyString = body ? JSON.stringify(body) : '';
     const signature = this._sign(timestamp, method, requestPath, bodyString);
 
-    const response = await fetch(`${API_BASE}${requestPath}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'OK-ACCESS-KEY': this.apiKey,
-        'OK-ACCESS-SIGN': signature,
-        'OK-ACCESS-TIMESTAMP': timestamp,
-        'OK-ACCESS-PASSPHRASE': this.passphrase,
-        'OK-ACCESS-PROJECT': this.projectId,
-      },
-      ...(body && { body: bodyString }),
-    });
+    let response;
+    try {
+      response = await fetch(`${API_BASE}${requestPath}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'OK-ACCESS-KEY': this.apiKey,
+          'OK-ACCESS-SIGN': signature,
+          'OK-ACCESS-TIMESTAMP': timestamp,
+          'OK-ACCESS-PASSPHRASE': this.passphrase,
+          'OK-ACCESS-PROJECT': this.projectId,
+        },
+        ...(body && { body: bodyString }),
+      });
+    } catch (err) {
+      throw new Error(`Network error calling OKX Payment API at ${API_BASE}${requestPath}: ${err.name}: ${err.message}${err.cause ? ' | cause: ' + err.cause : ''}`);
+    }
 
     const data = await response.json();
-    if (data.code !== '0') {
-      throw new Error(`OKX Payment API error (${data.code}): ${data.msg}`);
+    // OKX returns code as a number (0 = success), not a string —
+    // strict string comparison here previously treated every
+    // successful response as an error.
+    if (data.code !== 0) {
+      throw new Error(`OKX Payment API error (${data.code}): ${data.msg || data.error_message}`);
     }
     return data.data;
   }
