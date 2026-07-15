@@ -109,7 +109,7 @@ async function buildServer() {
   const okxPaymentClient = new OkxPaymentClient();
 
   await fastify.register(healthRoutes);
-  await fastify.register(rootRoutes);
+  await fastify.register(rootRoutes, { okxPaymentClient });
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
   await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider, okxPaymentClient });
