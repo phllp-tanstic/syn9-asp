@@ -28,7 +28,7 @@ export function requirePayment({ okxPaymentClient, amountFn, description }) {
     const amount = amountFn(request.body ?? {});
     const resourceUrl = `${request.protocol}://${request.hostname}${request.url}`;
 
-    const paymentHeader = request.headers['x-payment'];
+    const paymentHeader = request.headers['payment-signature'];
 
     if (!paymentHeader) {
       const challenge = buildChallenge({ amount, resourceUrl, description });
