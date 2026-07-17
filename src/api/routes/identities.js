@@ -8,9 +8,13 @@ import { ValidationError } from '../../core/domain/errors.js';
  * once; it cannot be recovered after this response, only rotated (not
  * yet implemented — no rotation endpoint exists as of Day 2).
  *
- * Rate-limited to 5 registrations per hour per caller — this is the one
- * endpoint with no auth gate at all (can't require an API key to get an
- * API key), making it the highest-risk target for spam registration.
+ * Rate-limited to 20 registrations per hour per caller — this is the
+ * one endpoint with no auth gate at all (can't require an API key to
+ * get an API key), making it the highest-risk target for spam
+ * registration. Raised from an initial 5/hour after real usage (the
+ * reference-consumer pipeline, which onboards 3 identities per run)
+ * showed 5 was too tight for legitimate multi-agent workflow
+ * bootstrapping, not just a spam-prevention threshold.
  *
  * @param {import('fastify').FastifyInstance} fastify
  * @param {{identityProvider: import('../../core/ports/identity-provider.js').IdentityProvider}} opts
@@ -23,7 +27,7 @@ export default async function identitiesRoutes(fastify, opts) {
     {
       config: {
         rateLimit: {
-          max: 5,
+          max: 20,
           timeWindow: '1 hour',
         },
       },
