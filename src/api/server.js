@@ -1,29 +1,35 @@
 import Fastify from 'fastify';
 import sensible from '@fastify/sensible';
+import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
+import { fileURLToPath } from 'node:url';
+
 import { config } from '../config/index.js';
 import { getPool } from '../modules/storage/postgres-client.js';
 import { ApiKeyWalletProvider } from '../modules/identity/api-key-wallet-provider.js';
-import healthRoutes from './routes/health.js';
-import identitiesRoutes from './routes/identities.js';
 import { Syn9Error } from '../core/domain/errors.js';
 import { requireAuth } from './middleware/auth.js';
 import { PostgresClaimStore } from '../modules/storage/postgres-claim-store.js';
 import { Sha256Chain } from '../modules/provenance/sha256-chain.js';
-import weaveRoutes from './routes/weave.js';
-import revokeRoutes from './routes/revoke.js';
 import { GeminiEmbeddingProvider } from '../modules/embeddings/gemini-embedding-provider.js';
 import { PermissionModePolicy } from '../modules/authorization/permission-mode-policy.js';
 import { PostgresAuditLog } from '../modules/audit/postgres-audit-log.js';
-import recallRoutes from './routes/recall.js';
-import { fileURLToPath } from 'node:url';
 import { GroqSynthesisEngine } from '../modules/synthesis/groq-synthesis-engine.js';
 import { AesGcmEncryptionProvider } from '../modules/encryption/aes-gcm-encryption-provider.js';
-import rateLimit from '@fastify/rate-limit';
 import { GroqAnomalyDetector } from '../modules/anomaly/groq-anomaly-detector.js';
+import { OkxPaymentClient } from '../modules/payment/okx-payment-client.js';
+
+import healthRoutes from './routes/health.js';
+import identitiesRoutes from './routes/identities.js';
+import weaveRoutes from './routes/weave.js';
+import revokeRoutes from './routes/revoke.js';
+import recallRoutes from './routes/recall.js';
 import conflictsRoutes from './routes/conflicts.js';
 import rootRoutes from './routes/root.js';
 import permissionGrantRoutes from './routes/permission-grant.js';
-import { OkxPaymentClient } from '../modules/payment/okx-payment-client.js';
+import researchCyclesRoutes from './routes/research-cycles.js';
+import provisionRoutes from './routes/provision.js';
+import demoRoutes from './routes/demo.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -49,6 +55,13 @@ async function buildServer() {
   await fastify.register(rateLimit, {
     max: 100,
     timeWindow: '1 minute',
+  });
+
+  // CORS — origin reflects the request origin for now; tighten this to
+  // the production Netlify domain once the frontend is finalized.
+  await fastify.register(cors, {
+    origin: true,
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   });
 
   // Error handler registered before any routes — Fastify's plugin
@@ -116,6 +129,9 @@ async function buildServer() {
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, okxPaymentClient });
   await fastify.register(conflictsRoutes, { claimStore, identityProvider });
   await fastify.register(permissionGrantRoutes, { claimStore, identityProvider });
+  await fastify.register(researchCyclesRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, okxPaymentClient });
+  await fastify.register(provisionRoutes, { identityProvider });
+  await fastify.register(demoRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector });
 
   return fastify;
 }

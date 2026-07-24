@@ -61,38 +61,47 @@ function signPaymentChallenge(challengeBase64) {
  * header attached. Two real HTTP round-trips for the first call in
  * any session — this is genuine x402 behavior, not shortcut-ed.
  */
-async function callWithPayment({ method, path, headers = {}, body }) {
+async function callWithPayment({ method, path, headers = {}, body }, retries = 1) {
   const url = `${BASE_URL}${path}`;
   const bodyString = body ? JSON.stringify(body) : undefined;
 
-  let response = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json', ...headers },
-    ...(bodyString && { body: bodyString }),
-  });
-
-  if (response.status === 402) {
-    const challengeBase64 = response.headers.get('payment-required');
-    if (!challengeBase64) {
-      throw new Error('Received 402 but no PAYMENT-REQUIRED header present');
-    }
-
-    const { authorization_header: authHeader, header_name: headerName } =
-      signPaymentChallenge(challengeBase64);
-
-    response = await fetch(url, {
+  try {
+    let response = await fetch(url, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-        [headerName]: authHeader,
-      },
+      headers: { 'Content-Type': 'application/json', ...headers },
       ...(bodyString && { body: bodyString }),
     });
-  }
 
-  const responseBody = await response.json();
-  return { status: response.status, body: responseBody };
+    if (response.status === 402) {
+      const challengeBase64 = response.headers.get('payment-required');
+      if (!challengeBase64) {
+        throw new Error('Received 402 but no PAYMENT-REQUIRED header present');
+      }
+
+      const { authorization_header: authHeader, header_name: headerName } =
+        signPaymentChallenge(challengeBase64);
+
+      response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+          [headerName]: authHeader,
+        },
+        ...(bodyString && { body: bodyString }),
+      });
+    }
+
+    const responseBody = await response.json();
+    return { status: response.status, body: responseBody };
+  } catch (err) {
+    if (retries > 0 && (err.cause?.code === 'UND_ERR_CONNECT_TIMEOUT' || err.message === 'fetch failed')) {
+      console.warn(`[Syn9Client] transient fetch error, retrying once... (${err.message})`);
+      await new Promise((r) => setTimeout(r, 1500));
+      return callWithPayment({ method, path, headers, body }, retries - 1);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -144,6 +153,17 @@ export class Syn9Agent {
     });
     return { status: response.status, body: await response.json() };
   }
+
+  async post(path, body) {
+  return callWithPayment({
+    method: 'POST',
+    path,
+    headers: this._authHeaders(),
+    body,
+  });
+}
+
+  
 }
 
 export { BASE_URL };

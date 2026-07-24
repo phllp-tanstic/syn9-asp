@@ -4,3 +4,15 @@ node_modules/
 dist/
 coverage/
 .DS_Store
+# Session debug/test scripts
+debug-conflicts.mjs
+deliver-task1.mjs
+deliver-task2.mjs
+get-anchor-hash.mjs
+get-demo-identity.mjs
+perf-breakdown.mjs
+perf-probe.mjs
+revoke-task2.mjs
+test-cycle.mjs
+test-demo.mjs
+test-provision.mjs
