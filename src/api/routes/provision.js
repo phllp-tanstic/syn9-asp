@@ -2,23 +2,37 @@
 //
 // POST /v1/provision
 //
-// Self-service buyer onboarding. Takes a wallet address, registers a
-// Syn9 identity, and returns credentials + usage instructions in one
-// response. No auth required — this is the entry point before a buyer
-// has any credentials. No x402 gate — provisioning is free.
+// Self-service buyer onboarding with wallet ownership verification.
+// Requires proof of wallet control via EIP-191 personal_sign signature
+// over a nonce issued by POST /v1/auth/challenge.
 //
-// Idempotent by design: if the wallet is already registered, returns
-// a 409 with a clear message rather than a hard error. The buyer
-// should store their API key from the original registration — it
-// cannot be recovered, only the wallet owner can re-register with a
-// different wallet address.
+// Security fix (P0): previously accepted any wallet address string
+// with no proof of ownership. Now verifies the caller controls the
+// private key for the claimed address before creating an identity.
 //
-// Rate-limited to 10/hour per IP — tighter than /v1/identities (20/hr)
-// because this endpoint is public-facing and unauthenticated.
+// ONBOARDING FLOW:
+//   1. POST /v1/auth/challenge { walletAddress } → { message }
+//   2. Sign `message` with wallet private key (EIP-191 personal_sign)
+//   3. POST /v1/provision { walletAddress, signature } → credentials + usage
+//
+// No auth required — this is the entry point before credentials exist.
+// No x402 gate — provisioning is free.
+// Rate-limited to 10/hr per IP.
 
+import { ethers } from 'ethers';
 import { ValidationError } from '../../core/domain/errors.js';
+import { consumeChallenge } from '../../modules/identity/challenge-store.js';
 
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+function buildChallengeMessage(walletAddress, nonce) {
+  return (
+    `Syn9 identity verification\n` +
+    `Wallet: ${walletAddress}\n` +
+    `Nonce: ${nonce}\n` +
+    `This signature proves you control this wallet. It does not authorize any transaction.`
+  );
+}
 
 export default async function provisionRoutes(fastify, opts) {
   const { identityProvider } = opts;
@@ -34,7 +48,7 @@ export default async function provisionRoutes(fastify, opts) {
       },
     },
     async (request, reply) => {
-      const { walletAddress, webhook_url: webhookUrl } = request.body ?? {};
+      const { walletAddress, signature, webhook_url: webhookUrl } = request.body ?? {};
 
       if (!walletAddress || typeof walletAddress !== 'string') {
         throw new ValidationError('walletAddress is required');
@@ -46,8 +60,43 @@ export default async function provisionRoutes(fastify, opts) {
         );
       }
 
+      if (!signature || typeof signature !== 'string') {
+        throw new ValidationError(
+          'signature is required. Call POST /v1/auth/challenge first to obtain a nonce, ' +
+          'sign the returned message with your wallet, then submit the signature here.'
+        );
+      }
+
       if (webhookUrl !== undefined && typeof webhookUrl !== 'string') {
         throw new ValidationError('webhook_url must be a string if provided');
+      }
+
+      // Consume nonce — single-use
+      const nonce = consumeChallenge(walletAddress);
+      if (!nonce) {
+        throw new ValidationError(
+          'No valid challenge found for this wallet address. ' +
+          'Challenges expire after 5 minutes and are single-use. ' +
+          'Call POST /v1/auth/challenge to obtain a new one.'
+        );
+      }
+
+      // Verify signature
+      const message = buildChallengeMessage(walletAddress, nonce);
+      let recoveredAddress;
+      try {
+        recoveredAddress = ethers.verifyMessage(message, signature);
+      } catch {
+        throw new ValidationError(
+          'Invalid signature — could not recover signer address.'
+        );
+      }
+
+      if (recoveredAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new ValidationError(
+          `Signature verification failed: recovered signer (${recoveredAddress}) ` +
+          `does not match claimed wallet (${walletAddress}).`
+        );
       }
 
       let identity, apiKey;
@@ -58,9 +107,6 @@ export default async function provisionRoutes(fastify, opts) {
           webhookUrl: webhookUrl ?? null,
         }));
       } catch (err) {
-        // Already registered — return 409 with clear instructions rather
-        // than a 400 that looks like a client mistake. The buyer needs to
-        // know their key was issued at registration and cannot be re-issued.
         if (err.code === 'VALIDATION_ERROR' && err.message.includes('already registered')) {
           reply.code(409);
           return {
@@ -74,16 +120,12 @@ export default async function provisionRoutes(fastify, opts) {
 
       reply.code(201);
       return {
-        // Credentials — store apiKey now, it cannot be retrieved again
         identityId: identity.identityId,
         walletAddress: identity.walletAddress,
         apiKey, // shown exactly once
 
-        // Ready-to-use endpoint
         endpoint: 'https://syn9-asp-production.up.railway.app',
 
-        // Complete usage instructions inline — buyer has everything
-        // they need in this single response, no docs lookup required
         usage: {
           authentication: {
             description: 'All authenticated endpoints require two headers',
@@ -93,6 +135,13 @@ export default async function provisionRoutes(fastify, opts) {
             },
           },
           quickstart: {
+            step0_challenge: {
+              description: 'For future registrations: obtain a challenge first',
+              method: 'POST',
+              url: 'https://syn9-asp-production.up.railway.app/v1/auth/challenge',
+              body: { walletAddress: '<your_wallet>' },
+              returns: 'message to sign with your wallet private key',
+            },
             step1_weave: {
               description: 'Write a finding with cryptographic provenance',
               method: 'POST',
@@ -121,14 +170,12 @@ export default async function provisionRoutes(fastify, opts) {
               method: 'POST',
               url: 'https://syn9-asp-production.up.railway.app/v1/research-cycles',
               note: 'Requires payment via x402 — 0.50 USDT standard tier, 1.00 USDT deep tier',
-              body: {
-                tier: 'standard',
-              },
+              body: { tier: 'standard' },
               returns: 'structured opportunity assessment with full provenance chain and contradiction detection',
             },
           },
           payment_note: 'WEAVE and RECALL are payment-gated via x402. Use onchainos payment pay --payload <challenge> --chain xlayer to sign payment challenges from your OKX Agentic Wallet.',
-          docs: 'https://syn9-asp-production.up.railway.app/v1/health for liveness. POST /v1/health returns service status.',
+          docs: 'https://syn9-asp-production.up.railway.app/v1/health for liveness.',
         },
       };
     }

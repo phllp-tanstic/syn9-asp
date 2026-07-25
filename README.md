@@ -177,7 +177,7 @@ graph TD
     Core -->|AnomalyDetector| GroqAnomaly["GroqAnomalyDetector\nfire-and-forget"]
     Core -->|ProvenanceChain| SHA256["Sha256Chain\nSHA256 hash linking"]
     Core -->|EncryptionProvider| AES["AesGcmEncryptionProvider\nAES-256-GCM"]
-    Core -->|IdentityProvider| Identity["ApiKeyWalletProvider\nBcrypt hashed keys"]
+    Core -->|IdentityProvider| Identity["ApiKeyWalletProvider\nSHA256 hashed keys"]
     Core -->|AuditLog| Audit["PostgresAuditLog\nseparately chained"]
     Routes -->|anchor| Anchor["XLayerAnchor\nethers.js · XLayer RPC"]
     Routes -->|payment client| OKX["OkxPaymentClient\nHMAC-signed x402"]

@@ -16,3 +16,9 @@ revoke-task2.mjs
 test-cycle.mjs
 test-demo.mjs
 test-provision.mjs
+
+register-service-identities.mjs
+test-conflict-authz.mjs
+test-ethers-verify.mjs
+test-ownership-verify.mjs
+test-tiers.mjs

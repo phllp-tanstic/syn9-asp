@@ -45,7 +45,6 @@ function parseContradictionResponse(text) {
  */
 export class GroqAnomalyDetector extends AnomalyDetector {
   async detect({ newClaim, recentClaims }) {
-    console.log('DETECT CALLED — newClaim.embedding present:', !!newClaim.embedding, '| recentClaims.length:', recentClaims.length);
     if (!newClaim.embedding || recentClaims.length === 0) return null;
 
     const candidates = recentClaims
@@ -57,7 +56,6 @@ export class GroqAnomalyDetector extends AnomalyDetector {
       .filter((c) => c.score >= SIMILARITY_PREFILTER_THRESHOLD)
       .sort((a, b) => b.score - a.score);
 
-    console.log('CANDIDATES AFTER FILTER:', candidates.length, '| all recentClaims embeddings present:', recentClaims.map(c => !!c.embedding));
 
     if (candidates.length === 0) return null;
 
@@ -74,7 +72,6 @@ export class GroqAnomalyDetector extends AnomalyDetector {
         systemInstruction: CONTRADICTION_SYSTEM_INSTRUCTION,
       });
 
-      console.log('LOOP CHECK — candidate:', candidate.claim.payload, '| score:', candidate.score, '| response:', JSON.stringify(response));
 
       const { contradicts, summary } = parseContradictionResponse(response);
       if (contradicts) {

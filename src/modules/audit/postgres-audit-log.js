@@ -73,32 +73,4 @@ export class PostgresAuditLog extends AuditLog {
     };
   }
 
-  async getUnanchored({ since, limit }) {
-    const result = await this.pool.query(
-      `SELECT * FROM audit_events
-       WHERE anchored = FALSE
-         AND ($1::timestamptz IS NULL OR occurred_at > $1)
-       ORDER BY occurred_at ASC
-       LIMIT $2`,
-      [since, limit]
-    );
-    return result.rows.map((row) => ({
-      eventId: row.event_id,
-      type: row.type,
-      threadId: row.thread_id,
-      actorIdentityId: row.actor_identity_id,
-      detail: row.detail,
-      chainHash: row.chain_hash,
-      occurredAt: row.occurred_at,
-    }));
-  }
-
-  async markAnchored({ eventIds, batchId }) {
-    await this.pool.query(
-      `UPDATE audit_events
-       SET anchored = TRUE, anchor_batch_id = $1
-       WHERE event_id = ANY($2)`,
-      [batchId, eventIds]
-    );
-  }
 }

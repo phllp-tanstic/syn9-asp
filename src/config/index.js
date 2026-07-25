@@ -76,4 +76,13 @@ export const config = {
     // 402 challenges). Same wallet as the Agentic Wallet from Day 1.
     payToWallet: process.env.SYN9_AGENT_WALLET ?? null,
   },
+
+  pipeline: {
+  onchainFeedIdentityId: process.env.SYN9_ONCHAIN_FEED_IDENTITY_ID ?? null,
+  onchainFeedWallet: process.env.SYN9_ONCHAIN_FEED_WALLET ?? null,
+  onchainFeedApiKey: process.env.SYN9_ONCHAIN_FEED_API_KEY ?? null,
+  signalAnalystIdentityId: process.env.SYN9_SIGNAL_ANALYST_IDENTITY_ID ?? null,
+  signalAnalystWallet: process.env.SYN9_SIGNAL_ANALYST_WALLET ?? null,
+  signalAnalystApiKey: process.env.SYN9_SIGNAL_ANALYST_API_KEY ?? null,
+  },
 };

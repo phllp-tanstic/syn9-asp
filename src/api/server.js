@@ -30,6 +30,7 @@ import permissionGrantRoutes from './routes/permission-grant.js';
 import researchCyclesRoutes from './routes/research-cycles.js';
 import provisionRoutes from './routes/provision.js';
 import demoRoutes from './routes/demo.js';
+import authRoutes from './routes/auth.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -121,15 +122,16 @@ async function buildServer() {
   const anomalyDetector = new GroqAnomalyDetector();
   const okxPaymentClient = new OkxPaymentClient();
 
+  await fastify.register(authRoutes);
   await fastify.register(healthRoutes);
   await fastify.register(rootRoutes, { okxPaymentClient });
   await fastify.register(identitiesRoutes, { identityProvider });
   await fastify.register(revokeRoutes, { claimStore, identityProvider });
   await fastify.register(recallRoutes, { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine, identityProvider, okxPaymentClient });
   await fastify.register(weaveRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, okxPaymentClient });
-  await fastify.register(conflictsRoutes, { claimStore, identityProvider });
+  await fastify.register(conflictsRoutes, { claimStore, identityProvider, authorizationPolicy });
   await fastify.register(permissionGrantRoutes, { claimStore, identityProvider });
-  await fastify.register(researchCyclesRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, okxPaymentClient });
+  await fastify.register(researchCyclesRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, okxPaymentClient, synthesisEngine });
   await fastify.register(provisionRoutes, { identityProvider });
   await fastify.register(demoRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector });
 

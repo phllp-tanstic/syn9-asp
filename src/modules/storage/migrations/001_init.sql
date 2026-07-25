@@ -80,15 +80,3 @@ CREATE INDEX ON audit_events (thread_id, occurred_at);
 CREATE INDEX ON audit_events (anchored, occurred_at);
 CREATE INDEX ON audit_events (actor_identity_id);
 
--- Anchor batches: merkle-rooted commitments of audit events, submitted
--- to XLayer (or Sepolia as fallback) roughly every 10 minutes.
-CREATE TABLE anchor_batches (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  batch_id        TEXT UNIQUE NOT NULL,
-  merkle_root     TEXT NOT NULL,
-  event_ids       TEXT[] NOT NULL,
-  chain           TEXT NOT NULL,                   -- 'xlayer' | 'sepolia'
-  tx_hash         TEXT,
-  anchored_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-);
