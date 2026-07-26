@@ -77,6 +77,10 @@ export const config = {
     payToWallet: process.env.SYN9_AGENT_WALLET ?? null,
   },
 
+  internal: {
+  secret: process.env.SYN9_INTERNAL_SECRET ?? null,
+  },
+
   pipeline: {
   onchainFeedIdentityId: process.env.SYN9_ONCHAIN_FEED_IDENTITY_ID ?? null,
   onchainFeedWallet: process.env.SYN9_ONCHAIN_FEED_WALLET ?? null,

@@ -34,7 +34,7 @@ export function buildChallenge({ amount, resourceUrl, description }) {
         asset: USDT_ASSET,
         payTo: config.payment.payToWallet,
         maxTimeoutSeconds: 60,
-        extra: { name: 'USDT', version: '2' },
+        extra: { name: 'USD₮0', version: '1' },
       },
     ],
   };

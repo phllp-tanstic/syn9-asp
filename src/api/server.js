@@ -31,6 +31,8 @@ import researchCyclesRoutes from './routes/research-cycles.js';
 import provisionRoutes from './routes/provision.js';
 import demoRoutes from './routes/demo.js';
 import authRoutes from './routes/auth.js';
+import coreEndpointRoutes from './routes/core-endpoint.js';
+import researchEndpointRoutes from './routes/research-endpoint.js';
 
 /**
  * Composition root for the HTTP layer.
@@ -63,6 +65,7 @@ async function buildServer() {
   await fastify.register(cors, {
     origin: true,
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    exposedHeaders: ['PAYMENT-REQUIRED', 'PAYMENT-RESPONSE'],
   });
 
   // Error handler registered before any routes — Fastify's plugin
@@ -134,6 +137,8 @@ async function buildServer() {
   await fastify.register(researchCyclesRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, okxPaymentClient, synthesisEngine });
   await fastify.register(provisionRoutes, { identityProvider });
   await fastify.register(demoRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector });
+  await fastify.register(coreEndpointRoutes, { okxPaymentClient, identityProvider });
+  await fastify.register(researchEndpointRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, synthesisEngine, okxPaymentClient });
 
   return fastify;
 }

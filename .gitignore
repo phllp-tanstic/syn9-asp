@@ -22,3 +22,5 @@ test-conflict-authz.mjs
 test-ethers-verify.mjs
 test-ownership-verify.mjs
 test-tiers.mjs
+
+test-endpoints.mjs

@@ -154,6 +154,14 @@ export class Syn9Agent {
     return { status: response.status, body: await response.json() };
   }
 
+  async getConflicts(threadId) {
+  const response = await fetch(`${BASE_URL}/v1/threads/${threadId}/conflicts`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json', ...this._authHeaders() },
+  });
+  return { status: response.status, body: await response.json() };
+}
+
   async post(path, body) {
   return callWithPayment({
     method: 'POST',

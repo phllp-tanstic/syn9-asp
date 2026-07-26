@@ -26,7 +26,7 @@ import { buildChallenge } from '../../modules/payment/x402-challenge.js';
 export function requirePayment({ okxPaymentClient, amountFn, description }) {
   return async function paymentPreHandler(request, reply) {
     const amount = amountFn(request.body ?? {});
-    const resourceUrl = `${request.protocol}://${request.hostname}${request.url}`;
+    const resourceUrl = `https://${request.hostname}${request.url}`;
 
     const paymentHeader = request.headers['payment-signature'];
 
@@ -54,15 +54,26 @@ export function requirePayment({ okxPaymentClient, amountFn, description }) {
     const paymentRequirements = challenge.accepts[0];
 
     try {
-      await okxPaymentClient.verify({ paymentPayload, paymentRequirements });
-      const settleResult = await okxPaymentClient.settle({ paymentPayload, paymentRequirements });
-      request.payment = { settled: true, ...settleResult };
-    } catch (err) {
-      reply.code(402).send({
-        error: 'PAYMENT_VERIFICATION_FAILED',
-        message: err.message,
-      });
-      return reply;
-    }
+  await okxPaymentClient.verify({ paymentPayload, paymentRequirements });
+  const settleResult = await okxPaymentClient.settle({ paymentPayload, paymentRequirements });
+  request.payment = { settled: true, ...settleResult };
+  // Return PAYMENT-RESPONSE header with settlement proof so OKX's
+  // validator sees on-chain settlement evidence per the x402 standard.
+  const paymentResponse = Buffer.from(JSON.stringify({
+    settled: true,
+    network: paymentRequirements.network,
+    asset: paymentRequirements.asset,
+    amount: paymentRequirements.amount,
+    payTo: paymentRequirements.payTo,
+    ...settleResult,
+  })).toString('base64');
+  reply.header('PAYMENT-RESPONSE', paymentResponse);
+  } catch (err) {
+  reply.code(402).send({
+    error: 'PAYMENT_VERIFICATION_FAILED',
+    message: err.message,
+  });
+  return reply;
+  }
   };
 }
