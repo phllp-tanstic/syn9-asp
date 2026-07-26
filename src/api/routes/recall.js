@@ -36,7 +36,6 @@ export default async function recallRoutes(fastify, opts) {
     '/v1/threads/:threadId/recall',
     {
       preHandler: [
-        requireAuth(identityProvider),
         requirePayment({
           okxPaymentClient,
           // Per blueprint constraint #5: raw RECALL must be near-free
@@ -45,6 +44,7 @@ export default async function recallRoutes(fastify, opts) {
           amountFn: (body) => (body.synthesis ? 1000 : 50),
           description: 'Syn9 RECALL — permissioned semantic retrieval',
         }),
+        requireAuth(identityProvider),
       ],
     },
     async (request, reply) => {

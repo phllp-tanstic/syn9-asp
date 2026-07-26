@@ -34,12 +34,12 @@ export default async function weaveRoutes(fastify, opts) {
     '/v1/threads/:threadId/weave',
     {
       preHandler: [
-        requireAuth(identityProvider),
         requirePayment({
           okxPaymentClient,
           amountFn: () => 2000, // $0.002 per blueprint pricing table, smallest-unit amount
           description: 'Syn9 WEAVE — write with provenance',
         }),
+        requireAuth(identityProvider),
       ],
     },
     async (request, reply) => {
