@@ -530,19 +530,8 @@
       document.getElementById('demo-error').classList.add('hidden');
 
       try {
-        // Step 1: provision a throwaway identity
-        setStatus('Provisioning demo identity...', true);
-        const wallet = randomWallet();
-        const provRes = await fetch(`${API}/v1/provision`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ walletAddress: wallet }),
-        });
-        if (!provRes.ok) throw new Error(`Provision failed: ${provRes.status}`);
-        const { apiKey } = await provRes.json();
-
-      
-        // Step 2: run demo pipeline — real prices, no payment required
+        // No provisioning needed — /v1/demo/research-cycle is unauthenticated
+        // and payment-free by design (see src/api/routes/demo.js).
         setStatus('Fetching CEX and DEX prices...', true);
         const cycleRes = await fetch(`${API}/v1/demo/research-cycle`, {
           method: 'POST',
