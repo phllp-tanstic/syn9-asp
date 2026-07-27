@@ -15,6 +15,15 @@ import { AuthenticationError } from '../../core/domain/errors.js';
  */
 export function requireAuth(identityProvider) {
   return async function authPreHandler(request) {
+    // A prior preHandler (the x402 payment gate) may have already
+    // derived an identity from the payer's wallet address in a settled
+    // payment. That's a legitimate, independently-proven identity —
+    // requiring a Bearer apiKey on top of it would defeat the point,
+    // since a standard x402 client has no way to obtain one inline.
+    if (request.identity) {
+      return;
+    }
+
     const authHeader = request.headers['authorization'];
     const walletAddress = request.headers['x-agent-wallet'];
 

@@ -222,6 +222,7 @@ export default async function researchCyclesRoutes(fastify, opts) {
         requireAuth(identityProvider),
         requirePayment({
           okxPaymentClient,
+          identityProvider,
           amountFn: (body) => {
             const tier = TIER_CONFIG[body?.tier];
             return tier ? tier.amount : TIER_CONFIG.standard.amount;

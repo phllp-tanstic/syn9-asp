@@ -23,7 +23,7 @@ import { buildChallenge } from '../../modules/payment/x402-challenge.js';
  *          amountFn: (body: object) => number,
  *          description: string}} params
  */
-export function requirePayment({ okxPaymentClient, amountFn, description }) {
+export function requirePayment({ okxPaymentClient, amountFn, description, identityProvider }) {
   return async function paymentPreHandler(request, reply) {
     const amount = amountFn(request.body ?? {});
     const resourceUrl = `https://${request.hostname}${request.url}`;
@@ -57,6 +57,18 @@ export function requirePayment({ okxPaymentClient, amountFn, description }) {
   await okxPaymentClient.verify({ paymentPayload, paymentRequirements });
   const settleResult = await okxPaymentClient.settle({ paymentPayload, paymentRequirements });
   request.payment = { settled: true, ...settleResult };
+
+  // Derive identity from the payer's wallet address in the signed
+  // authorization (x402 "exact" scheme: payload.authorization.from).
+  // A valid settled payment is itself proof of wallet control — the
+  // same proof /v1/provision's challenge-and-sign flow exists to
+  // establish — so a caller who reached this point has already earned
+  // an identity without a separate onboarding step.
+  const payerAddress = paymentPayload?.payload?.authorization?.from;
+  if (identityProvider && payerAddress) {
+    request.identity = await identityProvider.getOrCreateByWallet(payerAddress);
+  }
+
   // Return PAYMENT-RESPONSE header with settlement proof so OKX's
   // validator sees on-chain settlement evidence per the x402 standard.
   const paymentResponse = Buffer.from(JSON.stringify({

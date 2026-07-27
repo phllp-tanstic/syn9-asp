@@ -38,6 +38,7 @@ export default async function recallRoutes(fastify, opts) {
       preHandler: [
         requirePayment({
           okxPaymentClient,
+          identityProvider,
           // Per blueprint constraint #5: raw RECALL must be near-free
           // so agents never have a financial incentive to skip a
           // context check. $0.00005 raw, $0.001 synthesized.

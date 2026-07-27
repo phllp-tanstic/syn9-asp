@@ -59,6 +59,26 @@ export class IdentityProvider {
   async getById(_identityId) {
     throw new NotImplementedError('IdentityProvider', 'getById');
   }
+
+  /**
+   * Resolves an identity from a wallet address alone, creating one if
+   * none exists yet. Used by the x402 payment gate: a caller who has
+   * already proven wallet control via a signed on-chain payment
+   * authorization shouldn't also need to complete the separate
+   * challenge/provision flow to obtain an API key before the call can
+   * proceed — the payment signature IS the proof of wallet control
+   * that /v1/provision would otherwise separately verify.
+   *
+   * No API key is issued here — there is no side channel to hand one
+   * back on mid x402 flow. A caller who wants direct Bearer-based
+   * access later can still complete /v1/provision normally.
+   *
+   * @param {string} walletAddress
+   * @returns {Promise<Identity>}
+   */
+  async getOrCreateByWallet(_walletAddress) {
+    throw new NotImplementedError('IdentityProvider', 'getOrCreateByWallet');
+  }
 }
 
 /**

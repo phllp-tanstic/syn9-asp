@@ -19,6 +19,7 @@ export default async function coreEndpointRoutes(fastify, opts) {
 
   const paymentGate = requirePayment({
     okxPaymentClient,
+    identityProvider,
     amountFn: () => 2000, // $0.002 USDT — matches Core API listing fee
     description: 'Syn9 Core API — WEAVE/RECALL/GRANT/REVOKE primitives',
   });

@@ -75,6 +75,30 @@ export class ApiKeyWalletProvider extends IdentityProvider {
     };
   }
 
+  async getOrCreateByWallet(walletAddress) {
+    // INSERT ... ON CONFLICT DO UPDATE (a no-op update) rather than a
+    // plain upsert-or-ignore, so RETURNING always yields a row on both
+    // the create and the already-exists path. wallet_address is
+    // already UNIQUE on this table (migration 002), so this is
+    // race-safe under concurrent payments from the same new wallet.
+    const result = await this.pool.query(
+      `INSERT INTO identities (wallet_address, roles, webhook_url)
+       VALUES ($1, $2, NULL)
+       ON CONFLICT (wallet_address)
+       DO UPDATE SET wallet_address = EXCLUDED.wallet_address
+       RETURNING identity_id, wallet_address, roles, webhook_url`,
+      [walletAddress, ['agent']]
+    );
+
+    const row = result.rows[0];
+    return {
+      identityId: row.identity_id,
+      walletAddress: row.wallet_address,
+      roles: row.roles,
+      webhookUrl: row.webhook_url,
+    };
+  }
+
   async getById(identityId) {
     const result = await this.pool.query(
       'SELECT identity_id, wallet_address, roles, webhook_url FROM identities WHERE identity_id = $1',

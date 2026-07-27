@@ -36,6 +36,7 @@ export default async function weaveRoutes(fastify, opts) {
       preHandler: [
         requirePayment({
           okxPaymentClient,
+          identityProvider,
           amountFn: () => 2000, // $0.002 per blueprint pricing table, smallest-unit amount
           description: 'Syn9 WEAVE — write with provenance',
         }),

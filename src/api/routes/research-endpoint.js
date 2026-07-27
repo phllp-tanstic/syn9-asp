@@ -61,6 +61,7 @@ export default async function researchEndpointRoutes(fastify, opts) {
 
   const paymentGate = requirePayment({
     okxPaymentClient,
+    identityProvider,
     amountFn: () => SERVICE_AMOUNT,
     description: 'Syn9 Research Cycle — multi-source provenance pipeline ($0.50)',
   });
