@@ -86,7 +86,7 @@ export default async function researchEndpointRoutes(fastify, opts) {
   // POST — runs the full research cycle
   fastify.post(
     '/v1/research',
-    { preHandler: [paymentGate, requireAuth(identityProvider)] },
+    { preHandler: paymentGate },
     async (request, reply) => {
       const { assets, thread_id: existingThreadId } = request.body ?? {};
 

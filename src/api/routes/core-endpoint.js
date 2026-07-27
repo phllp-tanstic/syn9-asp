@@ -44,7 +44,7 @@ export default async function coreEndpointRoutes(fastify, opts) {
   });
 
   // POST — some validators probe via POST
-  fastify.post('/v1/core', { preHandler: [paymentGate, requireAuth(identityProvider)] }, async (request, reply) => {
+  fastify.post('/v1/core', { preHandler: paymentGate }, async (request, reply) => {
   const { threadId, intent, top_k = 3, min_similarity = 0.2, synthesis = false } = request.body ?? {};
 
   if (!threadId || !intent) {
