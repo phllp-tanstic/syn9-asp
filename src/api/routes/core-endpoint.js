@@ -51,7 +51,6 @@ export default async function coreEndpointRoutes(fastify, opts) {
       };
     }
 
-    // No threadId — seed a demo thread so first-time callers get real results
     if (!threadId) {
       const demo = await runDemoCycle({
         claimStore,
@@ -64,21 +63,34 @@ export default async function coreEndpointRoutes(fastify, opts) {
 
       const recall = await performRecall(
         { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine },
-        { threadId: demo.thread_id, intent, topK: top_k, minSimilarity: min_similarity, synthesis, requesterIdentity: request.identity }
+        {
+          threadId: demo.thread_id,
+          intent,
+          topK: top_k,
+          minSimilarity: min_similarity,
+          synthesis,
+          requesterIdentity: request.identity,
+        }
       );
 
       reply.code(200);
       return {
         ...recall,
         demo_thread_id: demo.thread_id,
-        note: 'No threadId provided — a demo thread was seeded automatically. Reuse demo_thread_id for future RECALL calls, or run POST /v1/research first to create your own thread.',
+        note: 'No threadId provided — a demo thread was seeded automatically. Reuse demo_thread_id in future calls, or run POST /v1/research first to create your own thread.',
       };
     }
 
-    // Normal path — caller supplied threadId + intent
     return performRecall(
       { claimStore, embeddingProvider, authorizationPolicy, auditLog, synthesisEngine },
-      { threadId, intent, topK: top_k, minSimilarity: min_similarity, synthesis, requesterIdentity: request.identity }
+      {
+        threadId,
+        intent,
+        topK: top_k,
+        minSimilarity: min_similarity,
+        synthesis,
+        requesterIdentity: request.identity,
+      }
     );
   });
 }
