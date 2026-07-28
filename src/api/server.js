@@ -137,7 +137,17 @@ async function buildServer() {
   await fastify.register(researchCyclesRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, okxPaymentClient, synthesisEngine });
   await fastify.register(provisionRoutes, { identityProvider });
   await fastify.register(demoRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector });
-  await fastify.register(coreEndpointRoutes, { okxPaymentClient, identityProvider });
+  await fastify.register(coreEndpointRoutes, {
+    okxPaymentClient,
+    identityProvider,
+    claimStore,
+    provenanceChain,
+    embeddingProvider,
+    anomalyDetector,
+    authorizationPolicy,
+    auditLog,
+    synthesisEngine,
+  });
   await fastify.register(researchEndpointRoutes, { claimStore, provenanceChain, embeddingProvider, anomalyDetector, identityProvider, authorizationPolicy, synthesisEngine, okxPaymentClient });
 
   return fastify;
