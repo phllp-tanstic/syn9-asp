@@ -1,31 +1,17 @@
 import { AuthenticationError } from '../../core/domain/errors.js';
 
-/**
- * Auth preHandler factory — extracts `Authorization: Bearer {key}` and
- * `X-Agent-Wallet`, resolves them to an Identity via the injected
- * IdentityProvider, and attaches it to `request.identity`.
- *
- * Applied per-route (via { preHandler: requireAuth(identityProvider) }
- * in each route's options), not globally — /v1/health and
- * /v1/identities must stay reachable without credentials. WEAVE,
- * RECALL, and REVOKE all register this same hook rather than each
- * re-implementing credential extraction.
- *
- * @param {import('../../core/ports/identity-provider.js').IdentityProvider} identityProvider
- */
 export function requireAuth(identityProvider) {
   return async function authPreHandler(request) {
-    // A prior preHandler (the x402 payment gate) may have already
-    // derived an identity from the payer's wallet address in a settled
-    // payment. That's a legitimate, independently-proven identity —
-    // requiring a Bearer apiKey on top of it would defeat the point,
-    // since a standard x402 client has no way to obtain one inline.
-    if (request.identity) {
-      return;
-    }
-
     const authHeader = request.headers['authorization'];
     const walletAddress = request.headers['x-agent-wallet'];
+
+    // If identity already set by payment middleware AND no Bearer token
+    // is present, accept the payment-derived identity as-is.
+    // If a Bearer token IS present, authenticate with it so the
+    // registered Syn9 identity (not the x402 payer wallet) is used.
+    if (request.identity && (!authHeader || !authHeader.startsWith('Bearer '))) {
+      return;
+    }
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new AuthenticationError(
@@ -39,13 +25,10 @@ export function requireAuth(identityProvider) {
       throw new AuthenticationError('Missing X-Agent-Wallet header');
     }
 
-    // Let AuthenticationError propagate as-is — the error handler in
-    // server.js already maps it to 401 with no further translation needed.
     const identity = await identityProvider.authenticate({
       apiKey,
       walletAddress,
     });
-
     request.identity = identity;
   };
 }
